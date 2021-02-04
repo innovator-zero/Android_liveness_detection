@@ -1,0 +1,67 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    compileSdkVersion 28
+    buildToolsVersion "30.0.2"
+
+    defaultConfig {
+        applicationId "com.example.app7"
+        minSdkVersion 21
+        targetSdkVersion 28
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        externalNativeBuild {
+            cmake {
+                arguments "-DCMAKE_BUILD_TYPE=Release"
+                cppFlags "-std=c++11 -frtti -fexceptions"
+            }
+        }
+        ndk{
+            abiFilters "armeabi-v7a","arm64-v8a"
+        }
+    }
+    sourceSets{
+        main{
+            jniLibs.srcDirs=['src/main/cpp/jniLibs']
+        }
+    }
+    packagingOptions {
+        pickFirst 'lib/arm64-v8a/libopencv_java4.so'
+        pickFirst 'lib/armeabi-v7a/libopencv_java4.so'
+        pickFirst 'lib/armeabi/libopencv_java4.so'
+        pickFirst 'lib/x86/libopencv_java4.so'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.10.2"
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+}
+
+dependencies {
+
+    implementation 'androidx.appcompat:appcompat:1.2.0'
+    implementation 'com.google.android.material:material:1.2.1'
+    implementation 'androidx.constraintlayout:constraintlayout:2.0.4'
+    implementation project(path: ':opencv')
+    testImplementation 'junit:junit:4.+'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.2'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
+}
