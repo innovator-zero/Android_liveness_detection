@@ -56,7 +56,6 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
 
     private static final String TAG = "cv_camera";
     //UI变量
-    private ImageView imageView;
     private TextView textView;
     private JavaCameraView cameraView;
     private ImageButton change_camera;
@@ -68,12 +67,13 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
     private boolean detect = false;//是否在检测
     private int cameraIndexCount = 1;//用于切换前后摄像头，0为后置，1为前置
 
-    private int step = -1;
-    private int act;
+    private int step = -1;//检测流程step
+    private int act;//检测动作1-5
     private double mid_h_pos;
     private double mid_v_pos;
     private long start_time;
     private long now_time;
+    private boolean[] pre = new boolean[5];
 
     private int getCameraCount() {
         return Camera.getNumberOfCameras();
@@ -106,7 +106,7 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
         //设置相机
         //cameraView.setVisibility(SurfaceView.VISIBLE);
         cameraView.setMaxFrameSize(1920, 1080);
-        cameraView.disableFpsMeter();
+        //cameraView.disableFpsMeter();
         cameraView.setCvCameraViewListener(this);
         cameraView.setCameraIndex(1);//前置相机
 
@@ -204,7 +204,7 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
             //用handler发送消息给主进程
             if (handler != null) {
                 Message msg = Message.obtain();
-                msg.obj = res;
+                msg.obj = res;//视线追踪的结果
                 handler.sendMessage(msg);
             }
         }
@@ -217,15 +217,16 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
         //开始检测
         detect = true;
 
-        //Step1：直视屏幕2s，获取中间视线位置
+        //step1：直视屏幕2s，获取中间视线位置
         step = 1;
         textView.setTextColor(Color.parseColor("#3F51B5"));
         textView.setText("请直视屏幕");
 
+        //将2s内的视线位置加入列表，计算均值
         List<Double> mid_h_list = new ArrayList<>();
         List<Double> mid_v_list = new ArrayList<>();
 
-        start_time = System.currentTimeMillis();
+        start_time = System.currentTimeMillis();//开始时间
 
         handler = new Handler() {
             @Override
@@ -238,70 +239,89 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
                     return;
                 }
 
-                //step1：获取直视位置
-                if (step == 1) {
-                    now_time = System.currentTimeMillis();
+                switch (step) {
+                    case 1: {
+                        now_time = System.currentTimeMillis();
 
-                    if (now_time - start_time <= 2000) {//在2s时间内
-                        //添加到列表中
-                        if (res.horizontal_ratio > 0)
-                            mid_h_list.add(res.horizontal_ratio);
-                        if (res.vertical_ratio > 0)
-                            mid_v_list.add(res.vertical_ratio);
-                    } else {//2s时间到
-                        //计算平均值
-                        //Log.d(TAG, "mid_h_list.size " + mid_h_list.size());
-                        //Log.d(TAG, "mid_v_list.size " + mid_v_list.size());
+                        if (now_time - start_time <= 2000) {//在2s时间内
+                            //添加到列表中
+                            if (res.horizontal_ratio > 0 && res.vertical_ratio > 0) {
+                                mid_h_list.add(res.horizontal_ratio);
+                                mid_v_list.add(res.vertical_ratio);
+                            }
+                        } else {//2s时间到
+                            //计算平均值
+                            if (mid_h_list.size() > 0 && mid_v_list.size() > 0) {
+                                mid_h_pos = Util.avg(mid_h_list);
+                                mid_v_pos = Util.avg(mid_v_list);
+                            } else {
+                                Fail("视线获取失败");
+                                return;
+                            }
 
-                        if (mid_h_list.size() > 0 && mid_v_list.size() > 0) {
-                            mid_h_pos = Util.avg(mid_h_list);
-                            mid_v_pos = Util.avg(mid_v_list);
-                        } else {
-                            Fail("视线获取失败");
+                            //进入step2
+                            step = 2;
+                            next_action(); //随机第一次检测动作
+                            start_time = System.currentTimeMillis(); //更新开始时间
+                        }
+                        break;
+                    }
+                    case 2: {
+                        now_time = System.currentTimeMillis();
+                        if (now_time - start_time > 5000) {
+                            Fail("超时！检测失败！");
                             return;
                         }
 
-                        Log.d(TAG, "mid_h_pos: " + mid_h_pos);
-                        Log.d(TAG, "mid_v_pos: " + mid_v_pos);
+                        if (judge_action(res)) {//检测成功，进入step3
+                            action_success();
+                            step = 3;
+                            start_time = System.currentTimeMillis();
+                        }
+                        break;
+                    }
+                    case 3: {
+                        now_time = System.currentTimeMillis();
+                        if (now_time - start_time > 500) {//等待0.5s
+                            step = 4;
+                            next_action(); //随机第二次检测动作
+                            start_time = System.currentTimeMillis();
+                        }
+                        break;
+                    }
+                    case 4: {
+                        now_time = System.currentTimeMillis();
+                        if (now_time - start_time > 5000) {
+                            Fail("超时！检测失败！");
+                            return;
+                        }
 
-                        //进入第二步
-                        step = 2;
-                        next_action(); //随机第一次检测动作
-                        start_time = System.currentTimeMillis(); //更新开始时间
+                        if (judge_action(res)) {//检测成功，进入step5
+                            action_success();
+                            step = 5;
+                            start_time = System.currentTimeMillis();
+                        }
+                        break;
                     }
-                } else if (step == 2) {
-                    now_time = System.currentTimeMillis();
-                    if (now_time - start_time > 5000) {
-                        Fail("超时！检测失败！");
-                        return;
+                    case 5: {
+                        now_time = System.currentTimeMillis();
+                        if (now_time - start_time > 500) {//等待0.5s
+                            step = 6;
+                            next_action(); //随机第三次检测动作
+                            start_time = System.currentTimeMillis();
+                        }
+                        break;
                     }
+                    case 6: {
+                        now_time = System.currentTimeMillis();
+                        if (now_time - start_time > 5000) {
+                            Fail("超时！检测失败！");
+                            return;
+                        }
 
-                    if (judge_action(res)) {
-                        step = 3;
-                        next_action(); //随机第二次检测动作
-                        start_time = System.currentTimeMillis(); //更新开始时间
-                    }
-                } else if (step == 3) {
-                    now_time = System.currentTimeMillis();
-                    if (now_time - start_time > 5000) {
-                        Fail("超时！检测失败！");
-                        return;
-                    }
-
-                    if (judge_action(res)) {
-                        step = 4;
-                        next_action(); //随机第三次检测动作
-                        start_time = System.currentTimeMillis(); //更新开始时间
-                    }
-                } else if (step == 4) {
-                    now_time = System.currentTimeMillis();
-                    if (now_time - start_time > 5000) {
-                        Fail("超时！检测失败！");
-                        return;
-                    }
-
-                    if (judge_action(res)) {
-                        Success();
+                        if (judge_action(res)) {
+                            Success();
+                        }
                     }
                 }
             }
@@ -317,16 +337,27 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
 
     public void Success() {
         textView.setTextColor(Color.GREEN);
-        textView.setText("成功");
+        textView.setText("成功!!!");
         detect = false;
         start_button.setEnabled(true);//启用按钮
     }
 
-    public void next_action() {
-        double d = Math.random();
-        act = (int) (d * 5);
-        Log.d(TAG, "next_action: "+act);
+    public void action_success() {
+        textView.setTextColor(Color.GREEN);
+        textView.setText("动作正确");
+    }
 
+    public void next_action() {
+        double d;
+        do {
+            d = Math.random();
+            act = (int) (d * 5);
+        } while (pre[act]);
+        pre[act] = true;
+
+        Log.d(TAG, "next_action: " + act);
+
+        textView.setTextColor(Color.parseColor("#3F51B5"));
         switch (act) {
             case 0:
                 textView.setText("请向左看");
