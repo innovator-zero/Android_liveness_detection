@@ -14,8 +14,7 @@ import java.util.Comparator;
 import java.util.List;
 
 public class Pupil {
-    private Mat iris_frame;
-    private int threshold;
+    private final int threshold;
     public int x;
     public int y;
 
@@ -36,7 +35,7 @@ public class Pupil {
     }
 
     void detect_iris(Mat eye_frame) {
-        iris_frame = image_processing(eye_frame, threshold);
+        Mat iris_frame = image_processing(eye_frame, threshold);
 
         List<MatOfPoint> contours = new ArrayList<>();
         Mat hierarchy = new Mat();

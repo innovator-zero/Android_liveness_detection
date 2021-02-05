@@ -14,21 +14,16 @@ public class Tracking {
     private Mat s_frame;
     private List<Point> landmarks;
     public Eye eye_left, eye_right;
-    private Calibration calibration;
+    private final Calibration calibration;
 
     public Tracking() {
-        //s_frame = new Mat();
-        //landmarks = new ArrayList<>();
         calibration = new Calibration();
     }
 
     public void refresh(Mat f, List<Point> lm) {
         s_frame = f;
         landmarks = lm;
-        analyze();
-    }
 
-    void analyze() {
         Mat frame = new Mat();
         Imgproc.cvtColor(s_frame, frame, Imgproc.COLOR_BGR2GRAY);
         try {
@@ -42,12 +37,8 @@ public class Tracking {
 
     boolean pupils_located() {
         try {
-            if (eye_left.pupil.x != -1 && eye_left.pupil.y != -1
-                    && eye_right.pupil.x != -1 && eye_right.pupil.y != -1) {
-                return true;
-            } else {
-                return false;
-            }
+            return eye_left.pupil.x != -1 && eye_left.pupil.y != -1
+                    && eye_right.pupil.x != -1 && eye_right.pupil.y != -1;
         } catch (Exception e) {
             return false;
         }
@@ -64,15 +55,11 @@ public class Tracking {
     }
 
     public Point pupil_right_coords() {
-        try {
-            if (pupils_located()) {
-                double x = eye_right.origin.x + eye_right.pupil.x;
-                double y = eye_right.origin.y + eye_right.pupil.y;
-                return new Point(x, y);
-            } else {
-                return null;
-            }
-        }catch (Exception e){
+        if (pupils_located()) {
+            double x = eye_right.origin.x + eye_right.pupil.x;
+            double y = eye_right.origin.y + eye_right.pupil.y;
+            return new Point(x, y);
+        } else {
             return null;
         }
     }
@@ -117,17 +104,13 @@ public class Tracking {
 
     public boolean is_left() {
         if (pupils_located()) {
-            return horizontal_ratio() >= 0.75;
+            return horizontal_ratio() >= 0.65;
         } else {
             return false;
         }
     }
 
-    public boolean left_blinking() {
-        return (eye_left.blinking > 3.8);
-    }
-
-    public boolean right_blinking() {
-        return (eye_right.blinking > 3.8);
+    public boolean is_blinking() {
+        return (eye_left.blinking > 6 && eye_right.blinking > 6);
     }
 }

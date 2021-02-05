@@ -22,10 +22,6 @@ public class Eye {
     public double blinking;
 
     Eye(Mat origin_frame, List<Point> landmarks, int side, Calibration calibration) {
-        analyze(origin_frame, landmarks, side, calibration);
-    }
-
-    void analyze(Mat origin_frame, List<Point> landmarks, int side, Calibration calibration) {
         blinking = blinking_ratio(landmarks, side);
         isolate(origin_frame, landmarks, side);
 
@@ -51,13 +47,16 @@ public class Eye {
             }
         }
 
+        //全白的图片
         Mat mask = Mat.zeros(frame.size(), CvType.CV_8UC1);
         mask.setTo(new Scalar(255));
 
+        //眼睛的部分填充成黑的
         MatOfPoint Mat_region = new MatOfPoint();
         Mat_region.fromList(region);
         Imgproc.fillConvexPoly(mask, Mat_region, new Scalar(0, 0, 0));
 
+        //原图中抠出眼睛，其余为白色
         Mat eye = new Mat();
         Core.add(frame, mask, eye);
 
@@ -76,8 +75,11 @@ public class Eye {
         int min_y = Collections.min(pointy) - margin;
         int max_y = Collections.max(pointy) + margin;
 
+        //眼睛的矩形裁剪出来
         s_frame = new Mat(eye, new Range(min_y, max_y), new Range(min_x, max_x));
+        //矩形的原点（绝对）
         origin = new Point(min_x, min_y);
+        //矩形的中心（相对）
         center = new Point((int) (s_frame.cols() / 2), (int) (s_frame.rows() / 2));
     }
 

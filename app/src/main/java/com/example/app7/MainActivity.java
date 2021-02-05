@@ -42,38 +42,42 @@ import org.opencv.imgproc.Imgproc;
 
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
 public class MainActivity extends CameraActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
-    // Used to load the 'native-lib' library on application startup.
+    // Used to load the 'native-lib' and opencv library on application startup.
     static {
         System.loadLibrary("opencv_java4");
         System.loadLibrary("native-lib");
     }
 
-    private static final String TAG = "cv_camera";
+    private static final String TAG = "ETLD";//Eye Tracking Liveness Detection
+    
     //UI变量
     private TextView textView;
     private JavaCameraView cameraView;
-    private ImageButton change_camera;
     private Button start_button;
 
+    //相机用变量
     private Mat rgba;//相机获取的图像
-    private Tracking gaze;//视线追踪
+    private int camera_index = 1;//用于切换前后摄像头，0为后置，1为前置
     private Handler handler;//传递信息
-    private boolean detect = false;//是否在检测
-    private int cameraIndexCount = 1;//用于切换前后摄像头，0为后置，1为前置
 
-    private int step = -1;//检测流程step
+    //视线追踪用变量
+    private Tracking eye_track;//视线追踪
+    private boolean detect = false;//是否在检测
+    private double mid_h_pos, mid_v_pos;//直视视线的垂直和水平位置
+
+
+    //检测流程用变量
+    private int step = 0;//检测流程1-6
     private int act;//检测动作1-5
-    private double mid_h_pos;
-    private double mid_v_pos;
-    private long start_time;
-    private long now_time;
-    private boolean[] pre = new boolean[5];
+    private long start_time, now_time;//记录时间
+    private final boolean[] pre_action = new boolean[5];//之前做过的动作
 
     private int getCameraCount() {
         return Camera.getNumberOfCameras();
@@ -100,27 +104,26 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
         setContentView(R.layout.activity_main);
         cameraView = findViewById(R.id.camera);
         textView = findViewById(R.id.textView);
-        change_camera = findViewById(R.id.imageButton);
-        start_button = findViewById(R.id.button2);
+        start_button = findViewById(R.id.button);
+        ImageButton change_camera = findViewById(R.id.imageButton);
+
 
         //设置相机
-        //cameraView.setVisibility(SurfaceView.VISIBLE);
         cameraView.setMaxFrameSize(1920, 1080);
-        //cameraView.disableFpsMeter();
+        cameraView.disableFpsMeter();
         cameraView.setCvCameraViewListener(this);
-        cameraView.setCameraIndex(1);//前置相机
+        cameraView.setCameraIndex(1);//打开前置相机
 
-        //初始化特征点和视线追踪
+        //初始化特征点识别
         faceinit(getAssets());
-        gaze = new Tracking();
-
-        //切换前后置相机的按钮
+        
+        //切换前后置相机按钮
         change_camera.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 cameraView.disableView();
-                cameraIndexCount = (cameraIndexCount + 1) % getCameraCount();
-                cameraView.setCameraIndex(cameraIndexCount);
+                camera_index = (camera_index + 1) % getCameraCount();
+                cameraView.setCameraIndex(camera_index);
                 cameraView.enableView();
             }
         });
@@ -130,6 +133,7 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
             @Override
             public void onClick(View v) {
                 start_button.setEnabled(false);//禁用按钮
+                eye_track = new Tracking();//初始化视线追踪
                 liveness_detection();
             }
         });
@@ -146,8 +150,7 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
     @Override
     public void onResume() {
         super.onResume();
-        if (!OpenCVLoader.initDebug()) {
-        } else {
+        if (OpenCVLoader.initDebug()) {
             cameraView.enableView();
         }
     }
@@ -165,11 +168,11 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
     }
 
     public void onCameraViewStarted(int width, int height) {
-        rgba = new Mat(width, height, CvType.CV_8UC3);//定义Mat
+        rgba = new Mat(width, height, CvType.CV_8UC3);//初始化rgba
     }
 
     public void onCameraViewStopped() {
-        rgba.release();//释放Mat
+        rgba.release();//释放rgba
     }
 
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
@@ -177,28 +180,29 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
         rgba = inputFrame.rgba();
 
         //前置相机需要镜像
-        if (cameraIndexCount == 1)
+        if (camera_index == 1) {
             Core.flip(rgba, rgba, 0);
+        }
 
         if (detect) {
             //调用dlib进行人脸特征点识别
             long addr = rgba.getNativeObjAddr();
-            List<Point> landmarks = findface(addr);
+            List<Point> landmarks = findface(addr);//返回特征点列表
 
-            TrackingResult res;
+            TrackingResult res;//视线追踪结果
 
             if (landmarks.size() > 0) {
-                gaze.refresh(rgba, landmarks);
+                eye_track.refresh(rgba, landmarks);//刷新视线追踪
+                res = new TrackingResult(true, eye_track.horizontal_ratio(),
+                        eye_track.vertical_ratio(), eye_track.is_blinking());
 
-                res = new TrackingResult(true, gaze.horizontal_ratio(),
-                        gaze.vertical_ratio(), gaze.left_blinking(), gaze.right_blinking());
                 //画左右巩膜
-                if (gaze.pupil_left_coords() != null)
-                    Imgproc.circle(rgba, gaze.pupil_left_coords(), 7, new Scalar(255, 0, 0), -1);
-                if (gaze.pupil_right_coords() != null)
-                    Imgproc.circle(rgba, gaze.pupil_right_coords(), 7, new Scalar(255, 0, 0), -1);
+                if (eye_track.pupil_left_coords() != null)
+                    Imgproc.circle(rgba, eye_track.pupil_left_coords(), 7, new Scalar(255, 0, 0), -1);
+                if (eye_track.pupil_right_coords() != null)
+                    Imgproc.circle(rgba, eye_track.pupil_right_coords(), 7, new Scalar(255, 0, 0), -1);
             } else {
-                res = new TrackingResult(false);
+                res = new TrackingResult(false);//没有识别到人脸
             }
 
             //用handler发送消息给主进程
@@ -216,13 +220,14 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
     public void liveness_detection() {
         //开始检测
         detect = true;
+        Arrays.fill(pre_action, Boolean.FALSE);//所有动作都初始化为false
 
         //step1：直视屏幕2s，获取中间视线位置
         step = 1;
         textView.setTextColor(Color.parseColor("#3F51B5"));
         textView.setText("请直视屏幕");
 
-        //将2s内的视线位置加入列表，计算均值
+        //将视线位置加入列表，计算均值
         List<Double> mid_h_list = new ArrayList<>();
         List<Double> mid_v_list = new ArrayList<>();
 
@@ -235,7 +240,7 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
 
                 //没有检测到人脸，直接失败
                 if (!res.face) {
-                    Fail("No face");
+                    Fail("没有检测到人脸");
                     return;
                 }
 
@@ -282,7 +287,7 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
                     }
                     case 3: {
                         now_time = System.currentTimeMillis();
-                        if (now_time - start_time > 500) {//等待0.5s
+                        if (now_time - start_time > 1000) {//等待1s
                             step = 4;
                             next_action(); //随机第二次检测动作
                             start_time = System.currentTimeMillis();
@@ -305,7 +310,7 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
                     }
                     case 5: {
                         now_time = System.currentTimeMillis();
-                        if (now_time - start_time > 500) {//等待0.5s
+                        if (now_time - start_time > 1000) {//等待1s
                             step = 6;
                             next_action(); //随机第三次检测动作
                             start_time = System.currentTimeMillis();
@@ -348,14 +353,14 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
     }
 
     public void next_action() {
+        //随机下一个动作，跟已经做过的不重复
         double d;
         do {
             d = Math.random();
             act = (int) (d * 5);
-        } while (pre[act]);
-        pre[act] = true;
-
-        Log.d(TAG, "next_action: " + act);
+        } while (pre_action[act]);
+        pre_action[act] = true;
+        //Log.d(TAG, "next_action: " + act);
 
         textView.setTextColor(Color.parseColor("#3F51B5"));
         switch (act) {
@@ -378,16 +383,15 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
     }
 
     public boolean judge_action(TrackingResult res) {
-        double thres = 0.2;
         switch (act) {
             case 0:
-                return (res.horizontal_ratio > 0 && (mid_h_pos - res.horizontal_ratio > thres));
+                return (res.horizontal_ratio > 0 && (mid_h_pos - res.horizontal_ratio > 0.2));
             case 1:
-                return (res.horizontal_ratio > 0 && (res.horizontal_ratio - mid_h_pos > thres));
+                return (res.horizontal_ratio > 0 && (res.horizontal_ratio - mid_h_pos > 0.2));
             case 2:
-                return (res.vertical_ratio > 0 && (mid_v_pos - res.vertical_ratio > 0.2));
+                return (res.vertical_ratio > 0 && (mid_v_pos - res.vertical_ratio > 0.12));
             case 3:
-                return (res.vertical_ratio > 0 && (res.vertical_ratio - mid_v_pos > 0.2));
+                return (res.vertical_ratio > 0 && (res.vertical_ratio - mid_v_pos > 0.17));
             case 4:
                 return res.blinking;
         }

@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Calibration {
-    private int nb_frames = 20;
     List<Integer> thresholds_left;
     List<Integer> threshold_right;
 
@@ -19,6 +18,7 @@ public class Calibration {
     }
 
     boolean is_complete() {
+        int nb_frames = 20;
         return thresholds_left.size() >= nb_frames && threshold_right.size() >= nb_frames;
     }
 
