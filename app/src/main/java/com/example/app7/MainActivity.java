@@ -389,7 +389,7 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
             case 1:
                 return (res.horizontal_ratio > 0 && (res.horizontal_ratio - mid_h_pos > 0.2));
             case 2:
-                return (res.vertical_ratio > 0 && (mid_v_pos - res.vertical_ratio > 0.12));
+                return (res.vertical_ratio > 0 && (mid_v_pos - res.vertical_ratio > 0.15));
             case 3:
                 return (res.vertical_ratio > 0 && (res.vertical_ratio - mid_v_pos > 0.17));
             case 4:

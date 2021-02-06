@@ -111,6 +111,7 @@ public class Tracking {
     }
 
     public boolean is_blinking() {
-        return (eye_left.blinking > 6 && eye_right.blinking > 6);
+        Log.d(TAG, "is_blinking: " + eye_left.EAR() + " " + eye_right.EAR());
+        return (eye_left.EAR() < 0.2 && eye_right.EAR() < 0.2);
     }
 }

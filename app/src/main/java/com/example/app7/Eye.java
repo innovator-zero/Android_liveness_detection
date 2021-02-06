@@ -19,24 +19,10 @@ public class Eye {
     private Mat s_frame;
     public Point origin, center;
     public Pupil pupil;
-    public double blinking;
+    private List<Point> region;
 
     Eye(Mat origin_frame, List<Point> landmarks, int side, Calibration calibration) {
-        blinking = blinking_ratio(landmarks, side);
-        isolate(origin_frame, landmarks, side);
-
-        if (!calibration.is_complete()) {
-            calibration.evaluate(s_frame, side);
-        }
-
-        int thres = calibration.threshold(side);
-        pupil = new Pupil(s_frame, thres);
-    }
-
-
-    void isolate(Mat frame, List<Point> landmarks, int side) {
-        List<Point> region = new ArrayList<>();
-
+        region = new ArrayList<>();
         if (side == 0) {
             for (int i = 36; i <= 41; i++) {
                 region.add(landmarks.get(i));
@@ -47,6 +33,18 @@ public class Eye {
             }
         }
 
+        isolate(origin_frame);
+
+        if (!calibration.is_complete()) {
+            calibration.evaluate(s_frame, side);
+        }
+
+        int thres = calibration.threshold(side);
+        pupil = new Pupil(s_frame, thres);
+    }
+
+
+    void isolate(Mat frame) {
         //全白的图片
         Mat mask = Mat.zeros(frame.size(), CvType.CV_8UC1);
         mask.setTo(new Scalar(255));
@@ -87,37 +85,14 @@ public class Eye {
         return Math.sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
     }
 
-    Point middle_point(Point a, Point b) {
-        double x = (a.x + b.x) / 2;
-        double y = (a.y + b.y) / 2;
-        return new Point(x, y);
-    }
-
-    double blinking_ratio(List<Point> landmarks, int side) {
-        Point left, right, top, bottom;
-
-        if (side == 0) {
-            left = landmarks.get(36);
-            right = landmarks.get(39);
-            top = middle_point(landmarks.get(37),landmarks.get(38));
-            bottom = middle_point(landmarks.get(40),landmarks.get(41));
-        } else {
-            left = landmarks.get(42);
-            right = landmarks.get(45);
-            top = middle_point(landmarks.get(43),landmarks.get(44));
-            bottom = middle_point(landmarks.get(46),landmarks.get(47));
-        }
-
-        double eye_width = dist(left, right);
-        double eye_height = dist(top, bottom);
-        double ratio;
-
+    public double EAR() {
+        double ear;
         try {
-            ratio = eye_width / eye_height;
-        } catch (ArithmeticException ae) {
-            ratio = -1;
+            ear = (dist(region.get(1), region.get(5)) + dist(region.get(2), region.get(4)))
+                    / (2 * dist(region.get(0), region.get(3)));
+        } catch (Exception e) {
+            ear = -1;
         }
-
-        return ratio;
+        return ear;
     }
 }

@@ -49,9 +49,9 @@ public class Calibration {
 
     int find_best_threshold(Mat eye_frame) {
         double average_iris_size = 0.48;
-        double[] trials = new double[19];
+        double[] trials = new double[39];
 
-        for (int i = 0; i < 19; i++) {
+        for (int i = 0; i < 39; i++) {
             Mat iris_frame = Pupil.image_processing(eye_frame, 5 * (i + 1));
             trials[i] = iris_size(iris_frame);
         }
@@ -60,7 +60,7 @@ public class Calibration {
         int best_threshold = 0;
         double diff = Math.abs(trials[0] - average_iris_size);
 
-        for (int i = 1; i < 19; i++) {
+        for (int i = 1; i < 39; i++) {
             double new_diff = Math.abs(trials[i] - average_iris_size);
             if (new_diff < diff) {
                 diff = new_diff;
