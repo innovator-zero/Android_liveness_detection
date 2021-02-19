@@ -66,9 +66,8 @@ extern "C" JNIEXPORT jobject JNICALL Java_com_example_app7_MainActivity_findface
     cv::Mat &frame = *(cv::Mat *) jrgba;
     cv::Mat img;
 
-    //下采样两次
+    //下采样
     pyrDown(frame, img, cv::Size(frame.cols / 2, frame.rows / 2));
-    pyrDown(img, img, cv::Size(img.cols / 2, img.rows / 2));
 
     //opencv Mat to dlib array2d
     dlib::array2d<dlib::bgr_pixel> cimg(img.rows, img.cols);
@@ -91,9 +90,9 @@ extern "C" JNIEXPORT jobject JNICALL Java_com_example_app7_MainActivity_findface
     if (!shapes.empty()) {
         for (int i = 0; i < 68; i++) {
             //landmark每个点的坐标
-            long x = shapes[0].part(i).x() * 3;
-            long y = shapes[0].part(i).y() * 4;
-            cv::circle(frame, cvPoint(x, y), 3, cv::Scalar(0, 255, 0), -1);//画图
+            long x = shapes[0].part(i).x() * 1.5;
+            long y = shapes[0].part(i).y() * 2;
+            cv::circle(frame, cvPoint(x, y), 2, cv::Scalar(0, 255, 0), -1);//画图
             jobject jobj = env->NewObject(point, point_init, (double) x, (double) y);//new一个Point
             env->CallBooleanMethod(list_obj, list_add, jobj);//add到list中
         }

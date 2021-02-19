@@ -109,7 +109,7 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
 
 
         //设置相机
-        cameraView.setMaxFrameSize(1920, 1080);
+        cameraView.setMaxFrameSize(640, 480);
         cameraView.disableFpsMeter();
         cameraView.setCvCameraViewListener(this);
         cameraView.setCameraIndex(1);//打开前置相机
@@ -198,9 +198,9 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
 
                 //画左右巩膜
                 if (eye_track.pupil_left_coords() != null)
-                    Imgproc.circle(rgba, eye_track.pupil_left_coords(), 7, new Scalar(255, 0, 0), -1);
+                    Imgproc.circle(rgba, eye_track.pupil_left_coords(), 3, new Scalar(255, 0, 0), -1);
                 if (eye_track.pupil_right_coords() != null)
-                    Imgproc.circle(rgba, eye_track.pupil_right_coords(), 7, new Scalar(255, 0, 0), -1);
+                    Imgproc.circle(rgba, eye_track.pupil_right_coords(), 3, new Scalar(255, 0, 0), -1);
             } else {
                 res = new TrackingResult(false);//没有识别到人脸
             }
@@ -259,6 +259,7 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
                             if (mid_h_list.size() > 0 && mid_v_list.size() > 0) {
                                 mid_h_pos = Util.avg(mid_h_list);
                                 mid_v_pos = Util.avg(mid_v_list);
+                                //Log.d(TAG, "handleMessage: "+mid_v_pos);
                             } else {
                                 Fail("视线获取失败");
                                 return;
@@ -361,6 +362,7 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
         } while (pre_action[act]);
         pre_action[act] = true;
         //Log.d(TAG, "next_action: " + act);
+        act=3;
 
         textView.setTextColor(Color.parseColor("#3F51B5"));
         switch (act) {
@@ -389,9 +391,11 @@ public class MainActivity extends CameraActivity implements CameraBridgeViewBase
             case 1:
                 return (res.horizontal_ratio > 0 && (res.horizontal_ratio - mid_h_pos > 0.2));
             case 2:
-                return (res.vertical_ratio > 0 && (mid_v_pos - res.vertical_ratio > 0.15));
+                //Log.d(TAG, "judge_action: "+(mid_v_pos - res.vertical_ratio));
+                return (res.vertical_ratio > 0 && (mid_v_pos - res.vertical_ratio > 0.10));
             case 3:
-                return (res.vertical_ratio > 0 && (res.vertical_ratio - mid_v_pos > 0.17));
+                //Log.d(TAG, "judge_action: "+(res.vertical_ratio - mid_v_pos));
+                return (res.vertical_ratio > 0 && (res.vertical_ratio - mid_v_pos > 0.12));
             case 4:
                 return res.blinking;
         }

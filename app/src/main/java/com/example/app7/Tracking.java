@@ -82,8 +82,8 @@ public class Tracking {
     double vertical_ratio() {
         try {
             if (pupils_located()) {
-                double pupil_left = eye_left.pupil.y / (eye_left.center.y * 2 - 10);
-                double pupil_right = eye_right.pupil.y / (eye_right.center.y * 2 - 10);
+                double pupil_left = eye_left.pupil.y / (eye_left.center.y * 2);
+                double pupil_right = eye_right.pupil.y / (eye_right.center.y * 2);
                 return (pupil_left + pupil_right) / 2;
             } else {
                 return -1;
@@ -111,7 +111,6 @@ public class Tracking {
     }
 
     public boolean is_blinking() {
-        Log.d(TAG, "is_blinking: " + eye_left.EAR() + " " + eye_right.EAR());
-        return (eye_left.EAR() < 0.2 && eye_right.EAR() < 0.2);
+        return (eye_left.EAR() < 0.18 && eye_right.EAR() < 0.18);
     }
 }
